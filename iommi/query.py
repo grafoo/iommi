@@ -92,16 +92,44 @@ from iommi.part import (
     Part,
     request_data,
 )
-from iommi.reinvokable import (
-    reinvokable,
-    reinvoke,
-    set_and_remember_for_reinvoke,
-)
+from iommi.refinable import EvaluatedRefinable
 from iommi.traversable import (
     declared_members,
-    EvaluatedRefinable,
     set_declared_member,
 )
+from iommi.reinvokable import (
+    set_and_remember_for_reinvoke,
+)
+from pyparsing import (
+    alphanums,
+    alphas,
+    Char,
+    Forward,
+    Group,
+    Keyword,
+    oneOf,
+    ParseException,
+    ParseResults,
+    QuotedString,
+    quotedString,
+    Word,
+    ZeroOrMore,
+)
+from tri_declarative import (
+    class_shortcut,
+    declarative,
+    dispatch,
+    EMPTY,
+    getattr_path,
+    Namespace,
+    Refinable,
+    refinable,
+    setdefaults_path,
+    Shortcut,
+    with_meta,
+    flatten,
+)
+from tri_struct import Struct
 
 
 class QueryException(Exception):
@@ -240,7 +268,6 @@ class Filter(Part):
     is_valid_filter = Refinable()
     query_name = EvaluatedRefinable()
 
-    @reinvokable
     @dispatch(
         query_operator_for_field='=',
         attr=MISSING,
@@ -553,7 +580,6 @@ class Advanced(Fragment):
     toggle: Namespace = Refinable()
 
     @dispatch(toggle=EMPTY)
-    @reinvokable
     def __init__(self, **kwargs):
         super(Advanced, self).__init__(**kwargs)
 
@@ -605,7 +631,6 @@ class Query(Part):
         member_class = Filter
         form_class = Form
 
-    @reinvokable
     @dispatch(
         endpoints__errors__func=default_endpoint__errors,
         filters=EMPTY,
@@ -616,26 +641,29 @@ class Query(Part):
         form_container__attrs__class__iommi_query_form_simple=True,
         advanced__call_target=Advanced,
     )
-    def __init__(self, *, model=None, rows=None, filters=None, _filters_dict=None, auto=None, **kwargs):
-        assert isinstance(filters, dict)
+    def __init__(self, **kwargs):
+        super(Query, self).__init__(**kwargs)
 
-        if auto:
-            auto = QueryAutoConfig(**auto)
+    def on_refine_done(self):
+        assert isinstance(self.filters, dict)
+
+        if self.auto:
+            auto = QueryAutoConfig(**self.auto)
             auto_model, auto_rows, filters = self._from_model(
                 model=auto.model,
                 rows=auto.rows,
-                filters=filters,
+                filters=self.filters,
                 include=auto.include,
                 exclude=auto.exclude,
             )
 
-            assert model is None, (
+            assert self.model is None, (
                 "You can't use the auto feature and explicitly pass model. "
                 "Either pass auto__model, or we will set the model for you from auto__rows"
             )
             model = auto_model
 
-            if rows is None:
+            if self.rows is None:
                 rows = auto_rows
 
         model, rows = model_and_rows(model, rows)
@@ -658,8 +686,6 @@ class Query(Part):
             # copy (just) the namespace so we can safely remove freetext from it
             kwargs = Namespace(flatten(Namespace(kwargs)))
             freetext_config = kwargs.get('form', {}).get('fields', {}).pop('freetext', {})
-
-        super(Query, self).__init__(model=model, rows=rows, **kwargs)
 
         collect_members(self, name='filters', items=filters, items_dict=_filters_dict, cls=self.get_meta().member_class)
 
@@ -706,6 +732,8 @@ class Query(Part):
         # Filters need to be at the end to not steal the short names
         set_declared_member(self, 'filters', declared_members(self).pop('filters'))
 
+        super(Query, self).on_refine_done()
+
     @dispatch(
         render__call_target=render_template,
     )
@@ -743,7 +771,7 @@ class Query(Part):
                     model_field=filter.model_field,
                     help__include=False,
                 )
-                declared_fields[name] = reinvoke(declared_fields[name], field)
+                declared_fields[name] = declared_fields[name].refine(**field)
         set_declared_member(self.form, 'fields', declared_fields)
 
         # Remove fields from the form that correspond to non-included filters
