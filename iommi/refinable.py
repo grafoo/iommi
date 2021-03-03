@@ -23,27 +23,27 @@ def prefixes(path):
 class RefinedNamespace(Namespace):
     __iommi_refined_description: str
     __iommi_refined_parent: Namespace
-    __iommi_refined_delta: Namespace
+    __iommi_refined_params: Namespace
     __iommi_refined_defaults: bool
 
     def __init__(self, description, parent, defaults=False, *args, **kwargs):
-        delta = Namespace(*args, **kwargs)
+        params = Namespace(*args, **kwargs)
         object.__setattr__(self, '__iommi_refined_description', description)
         object.__setattr__(self, '__iommi_refined_parent', parent)
-        object.__setattr__(self, '__iommi_refined_delta', delta)
+        object.__setattr__(self, '__iommi_refined_params', params)
         object.__setattr__(self, '__iommi_refined_defaults', defaults)
+        missing = object()
         if defaults:
             default_updates = Namespace()
             updates = Namespace()
-            for path, value in items(flatten(delta)):
+            for path, value in items(flatten(params)):
                 found = False
-                missing = object()
                 for prefix in prefixes(path):
                     existing = getattr_path(parent, prefix, missing)
                     if existing is missing:
                         break
                     if isinstance(existing, RefinableObject):
-                        existing = existing.refine_defaults(**getattr_path(delta, prefix))
+                        existing = existing.refine_defaults(**getattr_path(params, prefix))
                         updates.setitem_path(prefix, existing)
                         found = True
                 if not found:
@@ -51,15 +51,14 @@ class RefinedNamespace(Namespace):
             super().__init__(default_updates, parent, updates)
         else:
             updates = Namespace()
-            for path, value in items(flatten(delta)):
+            for path, value in items(flatten(params)):
                 found = False
-                missing = object()
                 for prefix in prefixes(path):
                     existing = getattr_path(parent, prefix, missing)
                     if existing is missing:
                         break
                     if isinstance(existing, RefinableObject):
-                        existing = existing.refine(**getattr_path(delta, prefix))
+                        existing = existing.refine(**getattr_path(params, prefix))
                         updates.setitem_path(prefix, existing)
                         found = True
                 if not found:
@@ -75,7 +74,7 @@ class RefinedNamespace(Namespace):
             try:
                 description = object.__getattribute__(node, '__iommi_refined_description')
                 parent = object.__getattribute__(node, '__iommi_refined_parent')
-                delta = object.__getattribute__(node, '__iommi_refined_delta')
+                delta = object.__getattribute__(node, '__iommi_refined_params')
                 defaults = object.__getattribute__(node, '__iommi_refined_defaults')
                 value = (description, flatten(delta))
                 if defaults:
