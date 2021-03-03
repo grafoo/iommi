@@ -132,9 +132,11 @@ class Traversable(RefinableObject):
         if parent is None:
             is_root = True
             result = result.apply_styles()
-            result.refine_done()
         else:
             is_root = False
+
+        if not result.is_refine_done:
+            result = result.refine_done()
 
         result._declared = self
         del self  # to prevent mistakes when changing the code below
@@ -207,7 +209,7 @@ class Traversable(RefinableObject):
 
 
 def declared_members(node: Traversable) -> Any:
-    assert node.is_refine_done, "Trying to find declared_memberd on RefinableObject without doing refine_done() first"
+    assert node.is_refine_done, "Trying to find declared_member on RefinableObject without doing refine_done() first"
     result = Namespace()
     for k, v in items(node.get_declared('refinable_members')):
         if isinstance(v, RefinableMembers):

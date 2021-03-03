@@ -108,8 +108,8 @@ def test_refine_recursive():
 
     basket = Basket(fruits__banana=Fruit(color='yellow'))
     basket = basket.refine(fruits__banana__taste='good')
-    basket.refine_done()
-    basket.fruits.banana.refine_done()
+    basket = basket.refine_done()
+    basket.fruits.banana = basket.fruits.banana.refine_done()
 
     assert basket.fruits.banana.taste == 'good'
     assert basket.fruits.banana.color == 'yellow'
@@ -127,8 +127,8 @@ def test_refine_recursive_defaults():
         fruits__banana__color='blue',
         fruits__banana__taste='good',
     )
-    basket.refine_done()
-    basket.fruits.banana.refine_done()
+    basket = basket.refine_done()
+    basket.fruits.banana = basket.fruits.banana.refine_done()
 
     assert basket.fruits.banana.taste == 'good'
     assert basket.fruits.banana.color == 'yellow'
@@ -159,7 +159,7 @@ def test_done_refine():
         a = Refinable()
 
     my_namespacey = MyRefinableObject(a=42)
-    my_namespacey.refine_done()
+    my_namespacey = my_namespacey.refine_done()
 
     assert my_namespacey.a == 42
 
@@ -196,3 +196,10 @@ def test_refined_as_stack():
         ('refinement', {'b': 2}),
         ('further refinement', {'d': 4}),
     ]
+
+
+def test_refine_done_not_mutating():
+    o = RefinableObject()
+    result = o.refine_done()
+    assert o.is_refine_done is False
+    assert result.is_refine_done is True

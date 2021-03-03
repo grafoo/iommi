@@ -147,43 +147,46 @@ Available attributes:
         self.is_refine_done = False
 
     def refine_done(self):
-        assert not self.is_refine_done, f"refine_done() already invoked on {self}"
+        result = copy(self)
+        del self
 
-        declared_items = self.get_declared('refinable_members')
-        remaining_namespace = Namespace(self.namespace)
+        assert not result.is_refine_done, f"refine_done() already invoked on {result}"
+
+        declared_items = result.get_declared('refinable_members')
+        remaining_namespace = Namespace(result.namespace)
         for k, v in items(declared_items):
             if isinstance(v, Refinable):
-                setattr(self, k, remaining_namespace.pop(k, None))
+                setattr(result, k, remaining_namespace.pop(k, None))
             else:
                 if k in remaining_namespace:
-                    setattr(self, k, remaining_namespace.pop(k))
+                    setattr(result, k, remaining_namespace.pop(k))
 
         if remaining_namespace:
             available_keys = '\n    '.join(sorted(declared_items.keys()))
             raise TypeError(
                 f"""\
-'{self.__class__.__name__}' object has no refinable attribute(s): {', '.join(f'"{k}"' for k in sorted(remaining_namespace.keys()))}.
+'{result.__class__.__name__}' object has no refinable attribute(s): {', '.join(f'"{k}"' for k in sorted(remaining_namespace.keys()))}.
 Available attributes:
     {available_keys}
 """
             )
-        self.is_refine_done = True
+        result.is_refine_done = True
 
-        self.on_refine_done()
+        result.on_refine_done()
 
-        return self
+        return result
 
     def on_refine_done(self):
         pass
 
     def refine(self, **args):
-        assert not self.is_refine_done, f"{self} already finalized"
+        assert not self.is_refine_done, f"{self!r} already finalized"
         result = copy(self)
         result.namespace = RefinedNamespace('refine', self.namespace, **args)
         return result
 
     def refine_defaults(self, **args):
-        assert not self.is_refine_done, f"{self} already finalized"
+        assert not self.is_refine_done, f"{self!r} already finalized"
         result = copy(self)
         result.namespace = RefinedNamespace('refine defaults', self.namespace, defaults=True, **args)
         return result

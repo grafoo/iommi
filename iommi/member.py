@@ -111,9 +111,9 @@ def collect_members(
     for k in to_delete:
         del unbound_items[k]
 
-    for item in values(unbound_items):
+    for key, item in items_of(unbound_items):
         if isinstance(item, Traversable):
-            item.refine_done()
+            unbound_items[key] = item.refine_done()
 
     for k, v in items_of(unbound_items):
         if isinstance(v, RefinableObject):
